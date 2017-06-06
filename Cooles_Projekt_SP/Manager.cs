@@ -2,7 +2,7 @@
  * Author:			Silvan Pfister
  * Organisation:	Asperger-AG
  * Project:			Settings Manager
- * Version:			1.0
+ * Version:			1.1
  * Creation-Date:	22.05.2017
  *
  *				Description:
@@ -61,38 +61,12 @@ namespace Settings
 	/// <summary>
 	/// Base Class for Settings managers. Provides save-, load- and data-allocation methods to ease the handling of the individual settings.
 	/// </summary>
-	public abstract class BaseManager
-	{
-		private readonly EventHandler saveaction;
-
-		/// <summary>
-		/// Initializes the Manager. Keep a reference to change settings if you cannot bind them.
-		/// </summary>
-		public BaseManager() { saveaction = (obj, e) => save(); init(); }
-
+	public abstract class BaseManager {
+		// These do not require documentation as they are handled locally
+		#region Private
+		#region Fields
+		private EventHandler saveaction;
 		private bool _SaveOnExit;
-		/// <summary>
-		/// If set to true, binds the <see cref="save"/> method to the <see cref="AppDomain.CurrentDomain"/>.ProcessExit event.
-		/// When set to false, it will unbind it again.
-		/// </summary>
-		public bool SaveOnExit
-		{
-			get { return _SaveOnExit; }
-			set {
-				if (_SaveOnExit != value) {
-					_SaveOnExit = value;
-					if (value)
-						AppDomain.CurrentDomain.ProcessExit += saveaction;
-					else
-						AppDomain.CurrentDomain.ProcessExit -= saveaction;
-				}
-			}
-		}
-
-
-		/// <summary>
-		/// Chacks a single character wether it is valid for use in a Filename
-		/// </summary>
 		private Func<char, bool> isNonFileChar = c => {
 			switch (c) {
 				case '\\':
@@ -108,70 +82,16 @@ namespace Settings
 					return false;
 			}
 		};
-
-		/// <summary>
-		/// 'Setting'-files will be saved with this suffix.
-		/// </summary>
-		public const string FileType = ".cfg";
-
+		#endregion
+		#region Properties
 		/// <summary>
 		/// data storage of the FileName property.
 		/// </summary>
 		private string _FileName = "main";
-
-		/// <summary>
-		/// The name of the file holding the settings-data.<br/>
-		/// Can be altered but the suffix won't change.<br/>
-		/// Throws an <see cref="InvalidFileNameException"/> if the new name is not valid for a file.
-		/// </summary>
-		public string FileName { get { return _FileName + FileType; } set {
-				//Validates the filename
-				if (value != null && value != "" && !value.Any(isNonFileChar)) {
-					_FileName = value.TrimEnd(FileType.ToArray());
-				} else throw new InvalidFileNameException(value);
-			} }
-
-		/// <summary>
-		/// Contains the settings defined in <see cref="initData"/>.
-		/// </summary>
-		public Dictionary<string, Setting> Settings = new Dictionary<string, Setting>();
-		
-		/// <summary>
-		/// Override this method to generate your settings-Dictionary. It will be used by the <see cref="init()"/> Method to generate a settings file.<br/>
-		/// The Key of the dictionary is the name of the setting, the Value is the setting-type.
-		/// See <see cref="allocateData(Dictionary{string, Setting})"/> for more information.
-		/// </summary>
-		/// <returns>The dictionary the library will use to manage the settings.</returns>
-		internal protected abstract Dictionary<string, Setting> initData();
-
-		/// <summary>
-		/// Override this method to allocate the data loaded from the data file. <para/>
-		/// To control what data is available here you need to override the <see cref="initData"/> method.
-		/// </summary>
-		/// <param name="settings">The dictionary holding all settings-data.</param>
-		internal protected abstract void allocateData(Dictionary<string, Setting> settings);
-
-		/// <summary>
-		/// Call this method upon starting your application.<br/>
-		/// It will generate the settings-dictionary and load the data from the settings file or create it if it doesn't exist yet.
-		/// </summary>
-		private void init() {
-				Settings = initData();
-				if (File.Exists(FileName)) {
-					//loads all available settings from the data-file
-					loadData();
-				} else {
-					File.Create(FileName).Close();
-					save();
-				}
-				allocateData(Settings);
-		}
-
-		/// <summary>
-		/// Attempts to create or load the settings file.
-		/// </summary>
+		#endregion
+		#region Methods
 		private void loadData() {
-			
+
 			FileStream fs = File.OpenRead(FileName);
 			StreamReader sr = new StreamReader(fs);
 			while (!sr.EndOfStream) {
@@ -186,6 +106,64 @@ namespace Settings
 			fs.Dispose();
 		}
 
+		private void initialisation(object[] data) {
+			saveaction = (obj, e) => save();
+			FieldAllocation(data);
+			Settings = Init();
+			if (File.Exists(FileName)) {
+				//loads all available settings from the data-file
+				loadData();
+			} else {
+				File.Create(FileName).Close();
+				save();
+			}
+			SettingsLoaded(Settings);
+		}
+		#endregion
+		#endregion
+		// Consistent behaviour for all subclasses
+		#region Public
+		#region Fields
+		/// <summary>
+		/// 'Setting'-files will be saved with this suffix.
+		/// </summary>
+		public string FileType = ".cfg";
+		/// <summary>
+		/// If set to true, binds the <see cref="save"/> method to the <see cref="AppDomain.CurrentDomain"/>.ProcessExit event.
+		/// When set to false, it will unbind it again.
+		/// </summary>
+		public bool SaveOnExit {
+			get { return _SaveOnExit; }
+			set {
+				if (_SaveOnExit != value) {
+					_SaveOnExit = value;
+					if (value)
+						AppDomain.CurrentDomain.ProcessExit += saveaction;
+					else
+						AppDomain.CurrentDomain.ProcessExit -= saveaction;
+				}
+			}
+		}
+		/// <summary>
+		/// The name of the file holding the settings-data.<br/>
+		/// Can be altered but the suffix won't change.<br/>
+		/// Throws an <see cref="InvalidFileNameException"/> if the new name is not valid for a file.
+		/// </summary>
+		public string FileName {
+			get { return _FileName + FileType; }
+			set {
+				//Validates the filename
+				if (value != null && value != "" && !value.Any(isNonFileChar)) {
+					_FileName = value.TrimEnd(FileType.ToArray());
+				} else throw new InvalidFileNameException(value);
+			}
+		}
+		/// <summary>
+		/// Contains the settings defined in <see cref="Init"/>.
+		/// </summary>
+		public Dictionary<string, Setting> Settings = new Dictionary<string, Setting>();
+		#endregion
+		#region Methods
 		/// <summary>
 		/// Saves the current <see cref="Settings"/> Dictionary to a file.
 		/// </summary>
@@ -196,5 +174,43 @@ namespace Settings
 			}
 			File.WriteAllLines(FileName, data);
 		}
+		/// <summary>
+		/// Creates a Manager of type <typeparamref name="T"/> using <paramref name="data"/> for the initialisation.
+		/// </summary>
+		/// <param name="data">Optional data for the manager. Forwarded to <see cref="FieldAllocation(object[])"/></param>
+		/// <typeparam name="T">A class implementing <see cref="BaseManager"/></typeparam>
+		public static T Create<T>(params object[] data) where T : BaseManager, new() {
+			T instance = new T();
+			instance.initialisation(data);
+			return instance;
+		}
+		#endregion
+		#endregion
+		// Subclass-specific behaviour
+		#region Abstract & Virtual
+		/// <summary>
+		/// Allocate your <paramref name="data"/> to fields inside this method.
+		/// This is called first after the constructor. Next is the <see cref="Init"/> method.
+		/// </summary>
+		/// <param name="data">The data you passed initially with the constructor</param>
+		internal protected virtual void FieldAllocation(object[] data) { } // Optional
+		/// <summary>
+		/// Override this method to structurize your settings-dictionary. It will be used to generate a settings file.
+		/// <para/>
+		/// This method is called after <see cref="FieldAllocation(object[])"/>
+		/// and before <see cref="SettingsLoaded(Dictionary{string, Setting})"/>
+		/// during construction
+		/// <para/>
+		/// The Key of the dictionary is the name of the setting, the Value is the default value.
+		/// </summary>
+		/// <returns>The dictionary the library will use to manage the settings.</returns>
+		internal protected abstract Dictionary<string, Setting> Init();
+		/// <summary>
+		/// Override this method to allocate the data loaded from the data file. <para/>
+		/// This method is called after <see cref="Init"/> during construction
+		/// </summary>
+		/// <param name="settings">The dictionary holding all settings-data.</param>
+		internal protected abstract void SettingsLoaded(Dictionary<string, Setting> settings);
+		#endregion
 	}
 }

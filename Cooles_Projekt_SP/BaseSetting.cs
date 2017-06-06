@@ -2,7 +2,7 @@
  * Author:			Silvan Pfister
  * Organisation:	Asperger-AG
  * Project:			Settings Manager
- * Version:			1.0
+ * Version:			1.1
  * Creation-Date:	22.05.2017
  *
  *				Description:
@@ -138,7 +138,7 @@ namespace Settings
 		/// <summary>
 		/// Enforced constructor. Sets the value to a sub-class specific value if not set.
 		/// </summary>
-		/// <param name="Default">The value to initialize the setting with. if not set, will use <see cref="_Default"/> instead</param>
+		/// <param name="Default">The value to initialize the setting with.
 		protected BaseSetting(T Default) { val = Default; }
 
 	}
